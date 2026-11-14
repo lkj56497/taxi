@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>택시 미터기</title>
+<title>청목운송 미터기</title>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="택시 미터기">
+<meta name="apple-mobile-web-app-title" content="청목운송 미터기">
 <meta name="theme-color" content="#15171b">
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" href="icon-192.png">
@@ -174,7 +174,7 @@ table.hist td.r,table.hist th.r{text-align:right}
     <section class="left">
       <div class="lcd" id="lcd">
         <div class="top">
-          <span class="brand glow">택시미터</span>
+          <span class="brand glow">청목운송</span>
           <span class="cnt glow" id="cnt">0</span>
           <span class="spd glow" id="spd">시속 0.0<small>㎞</small></span>
           <span class="gps wait" id="gps"><i></i><b id="gpsTxt">위치 찾는 중</b></span>
@@ -210,7 +210,7 @@ table.hist td.r,table.hist th.r{text-align:right}
     </section>
     <section class="pad">
       <div class="padTop">
-        <div class="maker">전자식 택시 미터기<small>휴대폰용</small></div>
+        <div class="maker">청목운송 미터기<small>전자식 택시 미터기</small></div>
         <div class="seal">검정필<br>2026</div>
       </div>
       <div class="keys">
@@ -298,7 +298,7 @@ const PRESETS={
   seoul:{label:"서울",base:4800,baseDist:1600,unitFare:100,unitDist:131,unitSec:30,thr:15.72,night:[[22,23,20],[23,2,40],[2,4,20]],out:20}
 };
 const DEF=Object.assign({preset:"gyeonggi",nightAuto:true,manualNight:20,callFee:1000,cargoFee:1000,discRate:10,
-  shop:"",carNo:"",bizNo:"",driver:"",phone:"",beep:true,voice:true},JSON.parse(JSON.stringify(PRESETS.gyeonggi)));
+  shop:"청목운송",carNo:"",bizNo:"",driver:"",phone:"",beep:true,voice:true},JSON.parse(JSON.stringify(PRESETS.gyeonggi)));
 delete DEF.label;
 
 let S;
@@ -306,6 +306,7 @@ function fresh(){return{set:JSON.parse(JSON.stringify(DEF)),mode:"vac",night:fal
   trip:null,stats:{total:0,biz:0,empty:0,count:0,sum:0},statSel:0,hist:[],serial:String(100000+Math.floor(Math.random()*899999)),lastT:Date.now(),lastWin:null,practice:false}}
 try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}
 if(!S||!S.set){S=fresh()}else{S.set=Object.assign(JSON.parse(JSON.stringify(DEF)),S.set);S.practice=false}
+if(!S.nameV){if(!S.set.shop)S.set.shop="청목운송";S.nameV=1}
 let dirty=true,lastSave=0;
 function save(force){if(!force&&Date.now()-lastSave<3000)return;lastSave=Date.now();try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
 
