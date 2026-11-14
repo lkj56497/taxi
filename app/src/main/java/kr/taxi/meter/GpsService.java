@@ -42,7 +42,7 @@ public class GpsService extends Service implements LocationListener {
         }
         PendingIntent pi = PendingIntent.getActivity(this, 0, new Intent(this, MainActivity.class),
                 PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
-        Notification n = b.setContentTitle("택시 미터기")
+        Notification n = b.setContentTitle("청목운송 미터기")
                 .setContentText("위치를 받아 요금을 계산하고 있어요")
                 .setSmallIcon(R.drawable.ic_stat)
                 .setOngoing(true)

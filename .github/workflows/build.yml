@@ -27,7 +27,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ github.run_number }}
-          name: 택시 미터기 ${{ github.run_number }}
+          name: 청목운송 미터기 ${{ github.run_number }}
           files: taxi.apk
       - name: 설치 사이트에 복사
         run: |
