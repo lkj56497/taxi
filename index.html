@@ -52,8 +52,8 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;touch-
 .gps.ok i{background:var(--lcd-green);color:var(--lcd-green)}
 .gps.wait i{background:var(--lcd-yellow);color:var(--lcd-yellow)}
 .clock{color:#cfd6df;font-size:calc(var(--u)*4.6);font-variant-numeric:tabular-nums}
-.side{display:flex;flex-direction:column;justify-content:center;gap:calc(var(--u)*.6);min-width:0}
-.horse{width:calc(var(--u)*20);height:calc(var(--u)*12.5);opacity:.4;transition:opacity .3s}
+.side{display:flex;flex-direction:column;justify-content:center;gap:calc(var(--u)*.3);min-width:0}
+.horse{width:calc(var(--u)*19);height:calc(var(--u)*23);opacity:.4;transition:opacity .3s}
 .horse.on{opacity:1}
 .rate{color:var(--lcd-blue);font-size:calc(var(--u)*8);font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
 .remain{color:var(--lcd-pink);font-size:calc(var(--u)*10.5);font-weight:800;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
@@ -607,51 +607,72 @@ addEventListener("pagehide",()=>save(true));
 if(location.protocol.startsWith("http")&&"serviceWorker" in navigator)addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
 
 
-/* ───────── 달리는 말 (속도에 맞춰 걸음·빠르기 변화) ───────── */
+/* ───────── 달리는 사람 (움짤 10장면을 그대로 옮겨 파란 선으로, 속도에 맞춰 재생) ───────── */
 (function(){
-  const cv=$("horse"),g=cv.getContext("2d");let ph=0,last=performance.now(),amp=0,W=0,H=0;
-  const BODY=new Path2D("M16 13C22 11.5 31 12 36 11.5 39 9 42 5 46 3L46.8 .6 48.3 3.4C51 5.5 53.5 8.5 55.5 11 56 12.3 55.3 13.4 54 13.3 52 13.1 50.5 12.6 49 12.8 47 13.5 45.5 15 44 17 43.5 19 42.8 20.6 41.5 21.5 37 23.3 28 23.5 22 22.8 18.5 22.3 15.5 20.5 15 17.5 14.8 15.5 15.2 14 16 13Z");
-  const EAR=new Path2D("M45 4.2C45.5 6 47 6.5 47.6 5.6");
-  function size(){const r=cv.getBoundingClientRect(),d=devicePixelRatio||1;if(!r.width)return;W=r.width;H=r.height;cv.width=Math.round(W*d);cv.height=Math.round(H*d)}
+  const cv=$("horse"),g=cv.getContext("2d"),off=document.createElement("canvas"),o=off.getContext("2d");
+  let ph=0,last=performance.now(),amp=0,W=0,H=0;
+  const col="#6cbcff";
+  // 장면마다: 머리, 앞어깨, 앞팔꿈치, 앞손, 뒤어깨, 뒤팔꿈치, 뒤손, 엉덩이, 다리1(무릎·발목·발끝), 다리2(무릎·발목·발끝)  (원본 300×391 좌표)
+  const K=[
+   [75,75, 100,110,40,130,5,155, 195,85,240,85,250,115, 160,205, 95,245,40,300,5,300, 225,265,275,310,280,350],
+   [95,60, 115,110,60,125,15,130, 205,85,245,95,260,130, 180,205, 110,250,55,310,20,315, 240,265,285,300,290,335],
+   [105,45, 110,95,45,105,15,130, 210,80,250,110,250,155, 175,200, 125,250,85,320,50,345, 180,270,255,265,270,300],
+   [125,30, 100,95,65,110,55,140, 215,80,240,120,220,170, 170,200, 160,270,130,340,115,380, 175,265,240,300,245,340],
+   [110,35, 110,100,90,140,95,160, 195,85,200,140,165,175, 165,210, 190,290,210,355,195,380, 105,255,160,300,185,330],
+   [90,55, 105,115,90,150,95,165, 195,90,195,140,170,175, 180,210, 235,270,285,320,290,355, 90,255,80,330,60,350],
+   [80,60, 100,110,85,140,80,155, 180,90,195,140,170,165, 165,210, 220,265,285,300,295,325, 85,250,40,300,5,310],
+   [95,45, 110,105,100,145,105,165, 190,85,200,140,180,170, 180,210, 235,275,265,268,275,305, 100,255,55,320,25,340],
+   [105,40, 110,105,85,140,75,160, 200,90,205,140,180,165, 165,210, 175,270,225,300,230,335, 140,280,140,345,115,375],
+   [85,50, 105,110,65,140,50,165, 200,95,225,130,230,155, 180,210, 100,260,85,330,65,350, 220,290,245,345,230,370]
+  ];
+  const STAND=[150,55, 135,110,125,165,125,215, 180,108,190,165,192,215, 160,215, 150,290,150,360,128,368, 172,290,172,360,150,368];
+  function size(){const r=cv.getBoundingClientRect(),d=devicePixelRatio||1;if(!r.width)return;W=r.width;H=r.height;
+    cv.width=off.width=Math.round(W*d);cv.height=off.height=Math.round(H*d)}
   addEventListener("resize",()=>setTimeout(size,250));
-  // 다리: 엉덩이/어깨 위치, 위상 차이(전력질주 순서), 앞다리 여부
-  const LEGS=[[19,19.5,0,0],[21.5,20.5,.1,0],[38.5,20,.5,1],[40.5,20,.6,1]];
-  function leg(x,y,p,front,a){
-    const s=Math.sin(p*2*Math.PI),c=Math.cos(p*2*Math.PI);
-    const t=((front?88:93)+(front?34:28)*a*s)*Math.PI/180;      // 윗다리 각도 (90 = 수직)
-    const bend=(front?1:-1)*Math.max(0,front?-c:c)*40*a;         // 앞무릎은 뒤로, 뒷다리 아랫마디는 앞으로 접힘
-    const kx=x+Math.cos(t)*7,ky=y+Math.sin(t)*7;
-    const t2=t+bend*Math.PI/180,hx=kx+Math.cos(t2)*7.5,hy=ky+Math.sin(t2)*7.5;
-    g.lineWidth=2.5;g.beginPath();g.moveTo(x,y-1);g.lineTo(kx,ky);g.stroke();
-    g.lineWidth=1.7;g.beginPath();g.moveTo(kx,ky);g.lineTo(hx,hy);g.stroke();
-    g.lineWidth=2.4;g.beginPath();g.moveTo(hx-.3,hy+.5);g.lineTo(hx+1.2,hy+.5);g.stroke();
+  function pose(t,a){const n=K.length,f=t*n,i=Math.floor(f)%n,j=(i+1)%n,u=f-Math.floor(f);
+    return K[i].map((v,k)=>{const run=v+(K[j][k]-v)*u;return STAND[k]+(run-STAND[k])*a})}
+  function shapes(c,P,grow,mode){   // mode 0: 굵게 칠하기, 1: 안쪽 지우기
+    const pt=k=>[P[k],P[k+1]];
+    const head=pt(0),sf=pt(2),ef=pt(4),wf=pt(6),sb=pt(8),eb=pt(10),wb=pt(12),hip=pt(14);
+    const mid=[(sf[0]+sb[0])/2,(sf[1]+sb[1])/2],neck=[head[0]+(mid[0]-head[0])*.55,head[1]+(mid[1]-head[1])*.55];
+    const L=(pts,w)=>{c.lineWidth=w+grow;c.beginPath();c.moveTo(pts[0][0],pts[0][1]);for(const q of pts.slice(1))c.lineTo(q[0],q[1]);c.stroke()};
+    const C=(q,r)=>{c.beginPath();c.arc(q[0],q[1],r+grow/2,0,7);c.fill()};
+    // 다리 (바지·구두)
+    for(const b of [16,22]){const kn=pt(b),an=pt(b+2),to=pt(b+4);L([hip,kn],36);L([kn,an],27);L([an,to],15)}
+    // 팔
+    L([sb,eb],26);L([eb,wb],21);C(wb,9);L([sf,ef],26);L([ef,wf],21);C(wf,9);
+    // 윗도리
+    const dx=hip[0]-mid[0],dy=hip[1]-mid[1];
+    const hemF=[hip[0]-46+dx*.08,hip[1]-6],hemB=[hip[0]+40+dx*.1,hip[1]+2];
+    c.beginPath();c.moveTo(sf[0]-6,sf[1]-4);c.lineTo(neck[0],neck[1]-4);c.lineTo(sb[0]+6,sb[1]-6);c.lineTo(hemB[0],hemB[1]);c.lineTo(hemF[0],hemF[1]);c.closePath();
+    c.lineWidth=grow||0.01;c.fill();if(grow)c.stroke();
+    L([neck,head],18);C(head,24);
+    return{head,neck,hemF,hemB,sf,sb};
   }
   function frame(now){
     if(!W)size();
     const dt=Math.min(.1,(now-last)/1000);last=now;
-    const hired=S.mode==="hire";
-    const v=hired?(S.practice?+$("pSpd").value:curSpeed):0;
-    // 속도 → 걸음 횟수(초당): 서 있으면 0, 걷기 1회 안팎, 빨라질수록 최대 4회
-    const hz=v<1?0:Math.min(4,.7+v/22);
-    const target=v<1?0:Math.min(1,.35+v/40);                 // 보폭: 천천히면 짧게, 빠르면 크게
+    const v=S.mode==="hire"?(S.practice?+$("pSpd").value:curSpeed):0;
+    const rate=v<1?0:Math.min(2.2,.35+v/38);                    // 초당 재생 횟수 (원본은 0.5초에 한 번)
+    const target=v<1?0:Math.min(1,.45+v/60);                    // 느리면 동작이 작고, 빠르면 원본 그대로 크게
     amp+=(target-amp)*Math.min(1,dt*4);
-    ph=(ph+hz*dt)%1;
+    ph=(ph+rate*dt)%1;
     if(W){
-      const d=devicePixelRatio||1,sc=Math.min(W/64,H/40);
-      g.setTransform(d*sc,0,0,d*sc,d*(W-64*sc)/2,d*(H-40*sc)/2);
-      g.clearRect(-10,-10,90,60);
-      const col="#52ff86";g.strokeStyle=col;g.fillStyle="#52ff86";g.lineCap="round";g.lineJoin="round";
-      g.shadowColor=col;g.shadowBlur=4*d;
-      const bob=-Math.abs(Math.sin(ph*2*Math.PI))*1.6*amp;      // 뛸 때 몸이 오르내림
-      const nod=Math.sin(ph*2*Math.PI+1)*2.2*amp;               // 고개 끄덕임
-      g.save();g.translate(0,bob);
-      LEGS.forEach(L=>leg(L[0],L[1],ph+L[2],L[3],amp));
-      g.save();g.translate(44,17);g.rotate(nod*Math.PI/180);g.translate(-44,-17);
-      g.fill(BODY);g.beginPath();g.arc(50.2,6.6,.7,0,7);g.fillStyle="#0a1a10";g.fill();g.fillStyle=col;g.strokeStyle=col;
-      g.restore();
-      const sw=Math.sin(ph*2*Math.PI*2)*3*amp;                   // 꼬리 흔들림
-      g.lineWidth=2.2;g.beginPath();g.moveTo(15.8,14.5);g.quadraticCurveTo(10,14+sw*.5,7,20+sw);g.stroke();g.lineWidth=1.4;g.beginPath();g.moveTo(15.5,15.5);g.quadraticCurveTo(11,18,9,24+sw*.7);g.stroke();
-      g.restore();
+      const d=devicePixelRatio||1,sc=Math.min(W/310,H/392)*d,ox=(W*d-300*sc)/2,oy=(H*d-392*sc)/2+4*sc;
+      const P=pose(ph,amp);
+      o.setTransform(1,0,0,1,0,0);o.clearRect(0,0,off.width,off.height);
+      o.setTransform(sc,0,0,sc,ox,oy);o.lineCap="round";o.lineJoin="round";
+      const T=7;                                                   // 선 굵기 (원본 좌표)
+      o.globalCompositeOperation="source-over";o.fillStyle=o.strokeStyle=col;shapes(o,P,T*2,0);
+      o.globalCompositeOperation="destination-out";o.fillStyle=o.strokeStyle="#000";const J=shapes(o,P,0,1);
+      // 안쪽 선: 머리, 윗도리 아랫단, 깃
+      o.globalCompositeOperation="source-over";o.strokeStyle=col;o.lineWidth=T;
+      o.beginPath();o.arc(J.head[0],J.head[1],24,0,7);o.stroke();
+      o.beginPath();o.moveTo(J.hemF[0],J.hemF[1]);o.lineTo(J.hemB[0],J.hemB[1]);o.stroke();
+      o.lineWidth=T*.8;o.beginPath();o.moveTo(J.neck[0]-4,J.neck[1]+2);o.lineTo((J.neck[0]+J.hemF[0])/2+14,(J.neck[1]+J.hemF[1])/2+6);o.stroke();
+      o.lineWidth=T*1.6;o.beginPath();o.arc(J.head[0],J.head[1],24,Math.PI*1.0,Math.PI*1.9);o.stroke();   // 머리카락
+      g.setTransform(1,0,0,1,0,0);g.clearRect(0,0,cv.width,cv.height);
+      g.shadowColor=col;g.shadowBlur=5*d;g.drawImage(off,0,0);
     }
     requestAnimationFrame(frame);
   }
