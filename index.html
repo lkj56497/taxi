@@ -53,11 +53,8 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;touch-
 .gps.wait i{background:var(--lcd-yellow);color:var(--lcd-yellow)}
 .clock{color:#cfd6df;font-size:calc(var(--u)*4.6);font-variant-numeric:tabular-nums}
 .side{display:flex;flex-direction:column;justify-content:center;gap:calc(var(--u)*.6);min-width:0}
-.horse{width:calc(var(--u)*17);height:calc(var(--u)*11);color:var(--lcd-green);filter:drop-shadow(0 0 calc(var(--u)*.8) currentColor);opacity:.35}
+.horse{width:calc(var(--u)*20);height:calc(var(--u)*12.5);opacity:.4;transition:opacity .3s}
 .horse.on{opacity:1}
-.horse .f2{display:none}
-.horse.run .f1{animation:fa .5s steps(1) infinite}.horse.run .f2{display:inline;animation:fb .5s steps(1) infinite}
-@keyframes fa{0%{opacity:1}50%{opacity:0}}@keyframes fb{0%{opacity:0}50%{opacity:1}}
 .rate{color:var(--lcd-blue);font-size:calc(var(--u)*8);font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
 .remain{color:var(--lcd-pink);font-size:calc(var(--u)*10.5);font-weight:800;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
 .remain small{display:block;font-size:calc(var(--u)*2.8);color:#ff9cc4;letter-spacing:0;margin-top:calc(var(--u)*.6);font-weight:700}
@@ -185,12 +182,7 @@ table.hist td.r,table.hist th.r{text-align:right}
           <span class="serial" id="serial"></span><span class="clock" id="clock">00:00</span>
         </div>
         <div class="side">
-          <svg class="horse" id="horse" viewBox="0 0 64 40" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M15 14C21 11 32 11 40 12L44 8 48 3 51 5 56 9 57.5 12.5 53 12.5 47.5 16 44.5 20C40 23 31 23 24 22.5 19 22 15.5 20 15 14Z" fill="currentColor" fill-opacity=".18"/>
-            <path d="M48 3l1-2.5M15 14c-3 1-5 3-6 7"/>
-            <g class="f1"><path d="M41 21l6 4 6 1M37.5 22l4 6.5 4 4M18 21l-7 6-6 2M22 22l-4 7.5-5 5"/></g>
-            <g class="f2"><path d="M41 21l-2 8 3 6M37.5 22l-3 7.5 1.5 6.5M18 21l4 8-2 7M22 22l4 7 2 6"/></g>
-          </svg>
+          <canvas class="horse" id="horse" aria-hidden="true"></canvas>
           <div class="rate glow" id="rate">0%</div>
           <div class="remain glow" id="remain">0<small id="remainLbl">다음 요금까지 (m)</small></div>
         </div>
@@ -410,18 +402,18 @@ function render(){
   const s=String(big);fare.textContent=s;fare.className="fare"+(S.mode==="vac"?" dim":"")+(s.length>=7?" len7":s.length===6?" len6":s.length===5?" len5":"");
   $("fareLbl").textContent=lbl;
   $("call").textContent=S.call;document.querySelector(".callRow").hidden=S.mode==="paid";$("chips").hidden=S.mode==="paid";
-  const h=$("horse");h.classList.toggle("on",S.mode==="hire");h.classList.toggle("run",S.mode==="hire"&&v>=1);
+  $("horse").classList.toggle("on",S.mode==="hire");
   if(T&&S.mode!=="vac"){const rem=Math.max(0,Math.ceil(T.nextAt-T.cnt));$("remain").firstChild.nodeValue=rem;$("remainLbl").textContent=T.cnt<T.cfg.baseDist?"기본거리 남음 (m)":"다음 요금까지 (m)"}
   else{$("remain").firstChild.nodeValue=S.set.baseDist;$("remainLbl").textContent="기본거리 (m)"}
   let sub="";
-  if(S.mode==="paid")sub=`미터 ${won(tt.fare)}`+(tt.call?` + 호출 ${won(tt.call)}`:"")+(tt.extra?` + 추가 ${won(tt.extra)}`:"")+(tt.disc?` − 할인 ${won(tt.disc)}`:"")+(T?` · ${km(T.dist)} · ${dur(T.secs)}`:"");
-  else if(S.mode==="hire"&&T)sub=`${km(T.dist)} · ${dur(T.secs)}`+(tt.extra?` · 추가 ${won(tt.extra)}`:"")+(tt.disc?` · 할인 −${won(tt.disc)}`:"");
+  if(S.mode==="paid")sub=`미터 ${won(tt.fare)}`+(tt.call?` + 호출 ${won(tt.call)}`:"")+(tt.extra?` + 추가 ${won(tt.extra)}`:"")+(tt.disc?` − 인할 ${won(tt.disc)}`:"")+(T?` · ${km(T.dist)} · ${dur(T.secs)}`:"");
+  else if(S.mode==="hire"&&T)sub=`${km(T.dist)} · ${dur(T.secs)}`+(tt.extra?` · 추가 ${won(tt.extra)}`:"")+(tt.disc?` · 인할 −${won(tt.disc)}`:"");
   else sub=`거리 ${S.set.unitDist}m · 시간 ${S.set.unitSec}초당 ${unitAmt(S.set,r)}원`;
   $("sub").textContent=sub;
   let c="";
   if(S.night)c+=`<span class="chip n">심야 할증</span>`;
   if(S.out)c+=`<span class="chip o">시외 할증</span>`;
-  if(S.disc)c+=`<span class="chip d">할인 ${S.set.discRate}%</span>`;
+  if(S.disc)c+=`<span class="chip d">인할 ${S.set.discRate}%</span>`;
   if(S.extras.length)c+=`<span class="chip x">추가 ${S.extras.length}건</span>`;
   if(S.practice)c+=`<span class="chip p">연습</span>`;
   $("chips").innerHTML=c;
@@ -481,14 +473,14 @@ const ACT={
   cargo(){if(S.mode==="paid")return toast("주행으로 돌아가서 추가해 주세요");const n=input?+input:+S.set.cargoFee;if(!n)return toast("금액을 입력해 주세요");S.extras.push(n);input="";toast(`추가 요금 ${won(n)}`)},
   out(){S.out=!S.out;toast(S.out?`시외 할증 ${S.set.out}%`:"시외 할증 해제")},
   callk(){if(S.mode==="paid")return toast("주행으로 돌아가서 바꿔 주세요");if(input){S.call=+input;input=""}else S.call=S.call?0:+S.set.callFee;toast(S.call?`호출 요금 ${won(S.call)}`:"호출 요금 해제")},
-  disc(){if(S.mode==="paid")return toast("주행으로 돌아가서 바꿔 주세요");if(input){const n=Math.min(100,+input);S.set.discRate=n;S.disc=n>0;input=""}else S.disc=!S.disc;toast(S.disc?`할인 ${S.set.discRate}%`:"할인 해제")},
+  disc(){if(S.mode==="paid")return toast("주행으로 돌아가서 바꿔 주세요");if(input){const n=Math.min(100,+input);S.set.discRate=n;S.disc=n>0;input=""}else S.disc=!S.disc;toast(S.disc?`인할 ${S.set.discRate}%`:"인할 해제")},
   print(){const rec=S.mode==="paid"&&S.trip?S.hist.find(h=>h.id===S.trip.histId):S.mode==="hire"?null:S.hist[0];
     if(S.mode==="hire"){showReceipt(liveRec());return}if(!rec)return toast("출력할 영수증이 없어요");showReceipt(rec)},
   hist(){showHist()},
   prac(){S.practice=!S.practice;if(!S.practice){$("pSpd").value=0;curSpeed=0}lastFix=null;S.lastT=Date.now();toast(S.practice?"연습 주행: 막대로 속도를 정해요":"연습 주행 끝")},
   set(){showSet()},
   cancel(){if(input){input="";return}if(S.mode==="paid")return toast("주행으로 돌아가서 취소해 주세요");
-    if(S.extras.length){const n=S.extras.pop();toast(`추가 요금 ${won(n)} 취소`)}else if(S.call){S.call=0;toast("호출 요금 취소")}else if(S.disc){S.disc=false;toast("할인 취소")}else toast("취소할 것이 없어요")}
+    if(S.extras.length){const n=S.extras.pop();toast(`추가 요금 ${won(n)} 취소`)}else if(S.call){S.call=0;toast("호출 요금 취소")}else if(S.disc){S.disc=false;toast("인할 취소")}else toast("취소할 것이 없어요")}
 };
 function liveRec(){const T=S.trip,tt=totals();return{id:0,start:T.start,end:Date.now(),dist:T.dist,secs:T.secs,fare:tt.fare,call:tt.call,extra:tt.extra,extras:S.extras.slice(),disc:tt.disc,total:tt.total,rate:T.maxRate,pay:"",live:true}}
 
@@ -531,7 +523,7 @@ function showReceipt(r){
   const rows2=[["미터 요금",won(r.fare)]];
   if(r.call)rows2.push(["호출 요금",won(r.call)]);
   (r.extras||[]).forEach((x,i)=>rows2.push([`추가 요금 ${i+1}`,won(x)]));
-  if(r.disc)rows2.push(["할인","−"+won(r.disc)]);
+  if(r.disc)rows2.push(["인할","−"+won(r.disc)]);
   h+=rows.map(x=>ln(x[0],x[1])).join("")+`<hr>`+rows2.map(x=>ln(x[0],x[1])).join("")+`<hr>`+ln("합계",won(r.total),"tot");
   if(r.pay)h+=ln("결제",r.pay);
   h+=`<hr><div class="c">번호 ${esc(S.serial)} · 이용해 주셔서 감사합니다</div>`;
@@ -570,10 +562,10 @@ const FIELDS=[
   ["sec","할증"],
   ["c","nightAuto","심야 할증 시간에 자동으로 켜기"],["n","manualNight","할증 버튼 할증률 (시간 밖)","%"],
   ["night"],
-  ["n","out","시외 할증률","%"],["n","discRate","인할 버튼 할인율","%"],
+  ["n","out","시외 할증률","%"],["n","discRate","인할 비율","%"],
   ["sec","추가 요금"],
   ["n","callFee","호출 버튼 기본 금액","원"],["n","cargoFee","화물 버튼 기본 금액","원"],
-  ["help","숫자를 먼저 누르고 호출·화물·인할 버튼을 누르면 그 금액(할인은 %)으로 들어가요. 통행료도 숫자 입력 후 화물 버튼으로 더하면 돼요."],
+  ["help","숫자를 먼저 누르고 호출·화물·인할 버튼을 누르면 그 금액(인할은 %)으로 들어가요. 통행료도 숫자 입력 후 화물 버튼으로 더하면 돼요."],
   ["sec","영수증에 들어갈 정보"],
   ["t","shop","상호(회사 이름)"],["t","carNo","차량번호"],["t","bizNo","사업자번호"],["t","driver","운전자 이름"],["t","phone","연락처"],
   ["sec","소리"],
@@ -614,6 +606,57 @@ addEventListener("pagehide",()=>save(true));
 
 if(location.protocol.startsWith("http")&&"serviceWorker" in navigator)addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
 
+
+/* ───────── 달리는 말 (속도에 맞춰 걸음·빠르기 변화) ───────── */
+(function(){
+  const cv=$("horse"),g=cv.getContext("2d");let ph=0,last=performance.now(),amp=0,W=0,H=0;
+  const BODY=new Path2D("M16 13C22 11.5 31 12 36 11.5 39 9 42 5 46 3L46.8 .6 48.3 3.4C51 5.5 53.5 8.5 55.5 11 56 12.3 55.3 13.4 54 13.3 52 13.1 50.5 12.6 49 12.8 47 13.5 45.5 15 44 17 43.5 19 42.8 20.6 41.5 21.5 37 23.3 28 23.5 22 22.8 18.5 22.3 15.5 20.5 15 17.5 14.8 15.5 15.2 14 16 13Z");
+  const EAR=new Path2D("M45 4.2C45.5 6 47 6.5 47.6 5.6");
+  function size(){const r=cv.getBoundingClientRect(),d=devicePixelRatio||1;if(!r.width)return;W=r.width;H=r.height;cv.width=Math.round(W*d);cv.height=Math.round(H*d)}
+  addEventListener("resize",()=>setTimeout(size,250));
+  // 다리: 엉덩이/어깨 위치, 위상 차이(전력질주 순서), 앞다리 여부
+  const LEGS=[[19,19.5,0,0],[21.5,20.5,.1,0],[38.5,20,.5,1],[40.5,20,.6,1]];
+  function leg(x,y,p,front,a){
+    const s=Math.sin(p*2*Math.PI),c=Math.cos(p*2*Math.PI);
+    const t=((front?88:93)+(front?34:28)*a*s)*Math.PI/180;      // 윗다리 각도 (90 = 수직)
+    const bend=(front?1:-1)*Math.max(0,front?-c:c)*40*a;         // 앞무릎은 뒤로, 뒷다리 아랫마디는 앞으로 접힘
+    const kx=x+Math.cos(t)*7,ky=y+Math.sin(t)*7;
+    const t2=t+bend*Math.PI/180,hx=kx+Math.cos(t2)*7.5,hy=ky+Math.sin(t2)*7.5;
+    g.lineWidth=2.5;g.beginPath();g.moveTo(x,y-1);g.lineTo(kx,ky);g.stroke();
+    g.lineWidth=1.7;g.beginPath();g.moveTo(kx,ky);g.lineTo(hx,hy);g.stroke();
+    g.lineWidth=2.4;g.beginPath();g.moveTo(hx-.3,hy+.5);g.lineTo(hx+1.2,hy+.5);g.stroke();
+  }
+  function frame(now){
+    if(!W)size();
+    const dt=Math.min(.1,(now-last)/1000);last=now;
+    const hired=S.mode==="hire";
+    const v=hired?(S.practice?+$("pSpd").value:curSpeed):0;
+    // 속도 → 걸음 횟수(초당): 서 있으면 0, 걷기 1회 안팎, 빨라질수록 최대 4회
+    const hz=v<1?0:Math.min(4,.7+v/22);
+    const target=v<1?0:Math.min(1,.35+v/40);                 // 보폭: 천천히면 짧게, 빠르면 크게
+    amp+=(target-amp)*Math.min(1,dt*4);
+    ph=(ph+hz*dt)%1;
+    if(W){
+      const d=devicePixelRatio||1,sc=Math.min(W/64,H/40);
+      g.setTransform(d*sc,0,0,d*sc,d*(W-64*sc)/2,d*(H-40*sc)/2);
+      g.clearRect(-10,-10,90,60);
+      const col="#52ff86";g.strokeStyle=col;g.fillStyle="#52ff86";g.lineCap="round";g.lineJoin="round";
+      g.shadowColor=col;g.shadowBlur=4*d;
+      const bob=-Math.abs(Math.sin(ph*2*Math.PI))*1.6*amp;      // 뛸 때 몸이 오르내림
+      const nod=Math.sin(ph*2*Math.PI+1)*2.2*amp;               // 고개 끄덕임
+      g.save();g.translate(0,bob);
+      LEGS.forEach(L=>leg(L[0],L[1],ph+L[2],L[3],amp));
+      g.save();g.translate(44,17);g.rotate(nod*Math.PI/180);g.translate(-44,-17);
+      g.fill(BODY);g.beginPath();g.arc(50.2,6.6,.7,0,7);g.fillStyle="#0a1a10";g.fill();g.fillStyle=col;g.strokeStyle=col;
+      g.restore();
+      const sw=Math.sin(ph*2*Math.PI*2)*3*amp;                   // 꼬리 흔들림
+      g.lineWidth=2.2;g.beginPath();g.moveTo(15.8,14.5);g.quadraticCurveTo(10,14+sw*.5,7,20+sw);g.stroke();g.lineWidth=1.4;g.beginPath();g.moveTo(15.5,15.5);g.quadraticCurveTo(11,18,9,24+sw*.7);g.stroke();
+      g.restore();
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
 S.lastT=Date.now();lastFixT=0;
 startGps();render();setInterval(tick,500);wake();
 })();
