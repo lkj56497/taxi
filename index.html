@@ -1,0 +1,622 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>택시 미터기</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="택시 미터기">
+<meta name="theme-color" content="#15171b">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<link rel="manifest" href="manifest.json">
+<style>
+:root{
+  --lcd-blue:#9fd3ff; --lcd-green:#52ff86; --lcd-pink:#ff6aa6; --lcd-yellow:#ffe24d; --lcd-dim:#5f6b78;
+  --key:#2a2d33; --key-hi:#3a3e46; --key-ink:#e9ecf1;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+[hidden]{display:none!important}
+html,body{height:100%;background:#121418;overflow:hidden;overscroll-behavior:none}
+body{font-family:-apple-system,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",sans-serif;color:#fff;
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation;-webkit-text-size-adjust:100%}
+input{-webkit-user-select:text;user-select:text}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;touch-action:manipulation}
+#app{position:fixed;left:0;top:0;width:var(--W,100vw);height:var(--H,100vh);transform-origin:0 0;--u:calc(var(--H,100vh)/100);
+  background:radial-gradient(120% 90% at 30% 10%,#2a2e35 0%,#17191d 55%,#0e0f12 100%)}
+#app.rot{transform:translateX(var(--VW)) rotate(90deg)}
+.meter{position:absolute;top:calc(var(--u)*3);bottom:calc(var(--u)*3);left:calc(var(--u)*3 + var(--sl,0px));right:calc(var(--u)*3 + var(--sr,0px));
+  display:flex;gap:calc(var(--u)*2.4)}
+
+/* ── 왼쪽: 표시창 + 기능 버튼 ── */
+.left{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:calc(var(--u)*2.2);
+  background:linear-gradient(#202328,#121417);border-radius:calc(var(--u)*3);padding:calc(var(--u)*2.2);
+  box-shadow:0 calc(var(--u)*1) calc(var(--u)*3) rgb(0 0 0/.6),inset 0 1px 0 rgb(255 255 255/.06)}
+.lcd{flex:1 1 auto;min-height:0;position:relative;border-radius:calc(var(--u)*1.8);overflow:hidden;
+  background:radial-gradient(70% 60% at 62% 78%,rgb(150 140 15/.42),transparent 70%),radial-gradient(60% 70% at 15% 30%,rgb(20 40 90/.5),transparent 70%),linear-gradient(#07090c,#101318);
+  border:calc(var(--u)*.9) solid #050607;box-shadow:inset 0 0 calc(var(--u)*4) rgb(0 0 0/.9);
+  display:grid;grid-template-columns:calc(var(--u)*25) 1fr;grid-template-rows:calc(var(--u)*9) 1fr calc(var(--u)*8.5);
+  padding:calc(var(--u)*1.6) calc(var(--u)*2.4);column-gap:calc(var(--u)*1.5)}
+.lcd::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(115deg,rgb(255 255 255/.07) 0%,transparent 35%),repeating-linear-gradient(0deg,rgb(255 255 255/.018) 0 1px,transparent 1px 3px)}
+.glow{text-shadow:0 0 calc(var(--u)*1.2) currentColor}
+.top{grid-column:1/3;display:flex;align-items:center;gap:calc(var(--u)*2.4);font-weight:800;white-space:nowrap;min-width:0}
+.brand{color:var(--lcd-yellow);font-size:calc(var(--u)*4.2);letter-spacing:.04em}
+.cnt{color:var(--lcd-blue);font-size:calc(var(--u)*5.6);font-variant-numeric:tabular-nums}
+.spd{color:var(--lcd-green);font-size:calc(var(--u)*5.2);font-variant-numeric:tabular-nums}
+.spd small{font-size:.62em;margin-left:.15em}
+.gps{display:flex;align-items:center;gap:calc(var(--u)*.8);font-size:calc(var(--u)*3.2);color:var(--lcd-dim);font-weight:700}
+.gps i{width:calc(var(--u)*2.2);height:calc(var(--u)*2.2);border-radius:50%;background:#ff4b4b;box-shadow:0 0 calc(var(--u)*1) currentColor;color:#ff4b4b}
+.gps.ok i{background:var(--lcd-green);color:var(--lcd-green)}
+.gps.wait i{background:var(--lcd-yellow);color:var(--lcd-yellow)}
+.clock{color:#cfd6df;font-size:calc(var(--u)*4.6);font-variant-numeric:tabular-nums}
+.side{display:flex;flex-direction:column;justify-content:center;gap:calc(var(--u)*.6);min-width:0}
+.horse{width:calc(var(--u)*17);height:calc(var(--u)*11);color:var(--lcd-green);filter:drop-shadow(0 0 calc(var(--u)*.8) currentColor);opacity:.35}
+.horse.on{opacity:1}
+.horse .f2{display:none}
+.horse.run .f1{animation:fa .5s steps(1) infinite}.horse.run .f2{display:inline;animation:fb .5s steps(1) infinite}
+@keyframes fa{0%{opacity:1}50%{opacity:0}}@keyframes fb{0%{opacity:0}50%{opacity:1}}
+.rate{color:var(--lcd-blue);font-size:calc(var(--u)*8);font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
+.remain{color:var(--lcd-pink);font-size:calc(var(--u)*10.5);font-weight:800;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.remain small{display:block;font-size:calc(var(--u)*2.8);color:#ff9cc4;letter-spacing:0;margin-top:calc(var(--u)*.6);font-weight:700}
+.main{display:flex;flex-direction:column;justify-content:center;align-items:flex-end;min-width:0;min-height:0;overflow:hidden}
+.fareRow{display:flex;align-items:center;gap:calc(var(--u)*1.2)}
+.fare{color:var(--lcd-blue);font-size:calc(var(--u)*29);font-weight:800;line-height:.9;letter-spacing:-.03em;font-variant-numeric:tabular-nums;
+  transform:skewX(-4deg);text-shadow:0 0 calc(var(--u)*2) rgb(140 200 255/.7)}
+.fare.dim{opacity:.45}
+.fare.len5{font-size:calc(var(--u)*24)}.fare.len6{font-size:calc(var(--u)*20)}.fare.len7{font-size:calc(var(--u)*17)}
+.unit{display:flex;flex-direction:column;align-items:center;color:#e8f0ff;font-weight:800;line-height:1}
+.unit b{font-size:calc(var(--u)*6.4)}
+.unit span{font-size:calc(var(--u)*2.6);color:var(--lcd-dim);margin-top:calc(var(--u)*.6)}
+.callRow{display:flex;align-items:center;gap:calc(var(--u)*1.2);margin-top:calc(var(--u)*.8);min-height:calc(var(--u)*9)}
+.call{color:var(--lcd-yellow);font-size:calc(var(--u)*9);font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
+.callRow .unit b{font-size:calc(var(--u)*3.4);color:var(--lcd-yellow)}
+.sub{color:#c6cfda;font-size:calc(var(--u)*3.3);max-width:100%;overflow:hidden;text-overflow:ellipsis;font-weight:700;white-space:nowrap;text-align:right;font-variant-numeric:tabular-nums}
+.chips{display:flex;gap:calc(var(--u)*1);margin-top:calc(var(--u)*1);flex-wrap:wrap;justify-content:flex-end}
+.chip{font-size:calc(var(--u)*3);font-weight:800;border-radius:calc(var(--u)*.8);padding:calc(var(--u)*.3) calc(var(--u)*1.4);border:1px solid currentColor}
+.chip.n{color:var(--lcd-pink)}.chip.o{color:#7cf0ff}.chip.d{color:var(--lcd-green)}.chip.x{color:var(--lcd-yellow)}.chip.p{color:#ffa94d}
+.payBtns{display:flex;gap:calc(var(--u)*1.4);margin-top:calc(var(--u)*1.2)}
+.payBtns button{font-size:calc(var(--u)*3.6);font-weight:800;padding:calc(var(--u)*1) calc(var(--u)*2.6);border-radius:calc(var(--u)*1.2);border:1px solid #6b7684;color:#dfe6ee;background:rgb(255 255 255/.05)}
+.payBtns button.on{background:var(--lcd-green);color:#06210f;border-color:var(--lcd-green)}
+.bottom{grid-column:1/3;display:flex;align-items:center;gap:calc(var(--u)*1.6);min-width:0;position:relative;z-index:1}
+.status{background:#2f4fff;color:#fff;font-weight:900;font-size:calc(var(--u)*4);padding:calc(var(--u)*.6) calc(var(--u)*1.8);border-radius:calc(var(--u)*.8);
+  box-shadow:0 0 calc(var(--u)*1.6) rgb(60 90 255/.8);white-space:nowrap}
+.status.vac{background:#e8ebef;color:#111;box-shadow:0 0 calc(var(--u)*1.4) rgb(255 255 255/.5)}
+.status.paid{background:#33c25a;box-shadow:0 0 calc(var(--u)*1.6) rgb(60 255 120/.6)}
+.stats{display:flex;gap:calc(var(--u)*1.8);font-size:calc(var(--u)*2.9);color:#aeb8c4;font-weight:700;white-space:nowrap;overflow:hidden;min-width:0;font-variant-numeric:tabular-nums}
+.stats span.sel{color:#fff;background:rgb(255 255 255/.14);border-radius:calc(var(--u)*.6);padding:0 calc(var(--u)*.8)}
+.serial{margin-left:auto;font-size:calc(var(--u)*2.6);overflow:hidden;color:var(--lcd-dim);white-space:nowrap}
+.input{position:absolute;right:calc(var(--u)*2.4);top:calc(var(--u)*11);background:rgb(0 0 0/.75);border:1px solid var(--lcd-yellow);color:var(--lcd-yellow);
+  font-size:calc(var(--u)*5);font-weight:800;padding:calc(var(--u)*.6) calc(var(--u)*1.8);border-radius:calc(var(--u)*1);z-index:2;font-variant-numeric:tabular-nums}
+.input small{font-size:.55em;color:#d9c96a;margin-right:.6em}
+.practice{position:absolute;left:calc(var(--u)*14);right:calc(var(--u)*2.4);bottom:calc(var(--u)*1.4);z-index:2;display:flex;align-items:center;gap:calc(var(--u)*1.6);
+  background:#2a1a00;border:1px solid #ffa94d;border-radius:calc(var(--u)*1.2);padding:calc(var(--u)*.8) calc(var(--u)*1.8);color:#ffd29a;font-weight:800;font-size:calc(var(--u)*3.2)}
+.practice input{flex:1;accent-color:#ffa94d;height:calc(var(--u)*5)}
+.toast{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);background:rgb(0 0 0/.85);border:1px solid #7f8a96;color:#fff;font-weight:800;
+  font-size:calc(var(--u)*4);padding:calc(var(--u)*1.6) calc(var(--u)*3);border-radius:calc(var(--u)*1.6);z-index:5;white-space:nowrap;pointer-events:none}
+
+.fkeys{flex:0 0 calc(var(--u)*15);display:grid;grid-template-columns:repeat(5,1fr);gap:calc(var(--u)*1.2)}
+.fk{position:relative;border-radius:calc(var(--u)*1.4);font-size:calc(var(--u)*6.4);font-weight:900;color:#1a1a22;letter-spacing:.06em;
+  box-shadow:0 calc(var(--u)*.8) 0 rgb(0 0 0/.55),inset 0 calc(var(--u)*-.6) 0 rgb(0 0 0/.15);transition:transform .06s}
+.fk:active,.k:active{transform:translateY(calc(var(--u)*.6))}
+.fk[data-k=vac]{background:linear-gradient(#ffffff,#dfe3ea)}
+.fk[data-k=hire]{background:linear-gradient(#d9d7ff,#a9a6f4)}
+.fk[data-k=night]{background:linear-gradient(#ff9cc9,#f0649f)}
+.fk[data-k=combo]{background:linear-gradient(#fff07a,#f3cf1f)}
+.fk[data-k=pay]{background:linear-gradient(#b8ff8c,#6fdc4a)}
+.fk::after{content:"";position:absolute;top:calc(var(--u)*1.2);right:calc(var(--u)*1.2);width:calc(var(--u)*2);height:calc(var(--u)*2);border-radius:50%;background:rgb(0 0 0/.25)}
+.fk.on::after{background:#ff2a2a;box-shadow:0 0 calc(var(--u)*1.4) #ff2a2a}
+
+/* ── 오른쪽: 숫자판 ── */
+.pad{flex:0 0 min(40%,calc(var(--u)*92));display:flex;flex-direction:column;gap:calc(var(--u)*1.6);
+  background:linear-gradient(#1f2226,#0f1012);border-radius:calc(var(--u)*3);padding:calc(var(--u)*2.2) calc(var(--u)*2.4);
+  box-shadow:0 calc(var(--u)*1) calc(var(--u)*3) rgb(0 0 0/.6),inset 0 1px 0 rgb(255 255 255/.06)}
+.padTop{display:flex;align-items:center;gap:calc(var(--u)*1.6);height:calc(var(--u)*9)}
+.maker{font-size:calc(var(--u)*3);color:#c9cdd3;font-weight:800;letter-spacing:.04em;line-height:1.2}
+.maker small{display:block;font-size:calc(var(--u)*2.2);color:#7d848d;font-weight:600}
+.seal{margin-left:auto;background:linear-gradient(#ff8fb8,#f25d93);color:#5a0b2a;font-weight:900;font-size:calc(var(--u)*2.5);padding:calc(var(--u)*.8) calc(var(--u)*1.4);
+  border-radius:calc(var(--u)*.6);transform:rotate(-3deg);line-height:1.15;text-align:center}
+.keys{flex:1;display:grid;grid-template-columns:repeat(5,1fr);grid-template-rows:repeat(4,1fr);gap:calc(var(--u)*1.4)}
+.k{border-radius:calc(var(--u)*1.2);background:linear-gradient(var(--key-hi),var(--key));color:var(--key-ink);font-weight:800;font-size:calc(var(--u)*4.4);
+  box-shadow:0 calc(var(--u)*.7) 0 #000,inset 0 1px 0 rgb(255 255 255/.12);transition:transform .06s;display:flex;align-items:center;justify-content:center;line-height:1}
+.k.n{font-size:calc(var(--u)*6);background:linear-gradient(#34383f,#22252a);font-variant-numeric:tabular-nums}
+.k.f{font-size:calc(var(--u)*4)}
+.k.on{color:#111;background:linear-gradient(#ffe46b,#e8c21c)}
+.k.lab{font-size:calc(var(--u)*3.4);color:#aab2bc}
+
+/* ── 창 ── */
+.sheet{position:absolute;inset:0;z-index:20;background:rgb(0 0 0/.6);display:flex;align-items:center;justify-content:center;padding:calc(var(--u)*3)}
+.card{background:#1d2026;border:1px solid #3a3f48;border-radius:calc(var(--u)*3);width:min(100%,calc(var(--u)*190));max-height:100%;display:flex;flex-direction:column;overflow:hidden;
+  box-shadow:0 calc(var(--u)*2) calc(var(--u)*6) rgb(0 0 0/.6)}
+.cardHead{display:flex;align-items:center;gap:calc(var(--u)*2);padding:calc(var(--u)*2.4) calc(var(--u)*3);border-bottom:1px solid #31353d}
+.cardHead h2{font-size:calc(var(--u)*5);font-weight:900}
+.cardHead .sp{flex:1}
+.btn{font-weight:800;font-size:calc(var(--u)*3.8);padding:calc(var(--u)*1.4) calc(var(--u)*3);border-radius:calc(var(--u)*1.4);background:#323741;color:#fff}
+.btn.pri{background:#ffd43b;color:#1f1800}
+.btn.red{background:#5a2328;color:#ffd4d6}
+.cardBody{overflow:auto;-webkit-overflow-scrolling:touch;padding:calc(var(--u)*2.4) calc(var(--u)*3) calc(var(--u)*3);-webkit-user-select:text;user-select:text}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:calc(var(--u)*1.6) calc(var(--u)*4)}
+.sec{grid-column:1/3;font-size:calc(var(--u)*3.4);font-weight:900;color:#ffd43b;margin-top:calc(var(--u)*1.6);padding-bottom:calc(var(--u)*.6);border-bottom:1px solid #31353d}
+.fld{display:flex;align-items:center;gap:calc(var(--u)*1.6);font-size:calc(var(--u)*3.6);color:#d6dbe2}
+.fld span{flex:1}
+.fld input[type=number],.fld input[type=text]{width:calc(var(--u)*30);font:inherit;font-weight:700;color:#fff;background:#111317;border:1px solid #3a3f48;border-radius:calc(var(--u)*1);padding:calc(var(--u)*1) calc(var(--u)*1.4);text-align:right}
+.fld input[type=text]{text-align:left}
+.fld input[type=checkbox]{width:calc(var(--u)*5);height:calc(var(--u)*5);accent-color:#ffd43b}
+.fld .u{width:auto;flex:none;color:#8e97a3;font-size:.85em}
+.nightRow{white-space:nowrap;display:flex;align-items:center;gap:calc(var(--u)*1);font-size:calc(var(--u)*3.4);color:#d6dbe2}
+.nightRow input{width:calc(var(--u)*13);font:inherit;font-weight:700;color:#fff;background:#111317;border:1px solid #3a3f48;border-radius:calc(var(--u)*1);padding:calc(var(--u)*.8);text-align:center}
+.seg{display:flex;gap:calc(var(--u)*1)}
+.seg button{font-weight:800;font-size:calc(var(--u)*3.6);padding:calc(var(--u)*1.2) calc(var(--u)*2.6);border-radius:calc(var(--u)*1.2);background:#2a2e35;color:#cfd5dc}
+.seg button.on{background:#ffd43b;color:#1f1800}
+.help{grid-column:1/3;font-size:calc(var(--u)*3);color:#8e97a3;line-height:1.5}
+table.hist{width:100%;border-collapse:collapse;font-size:calc(var(--u)*3.4);font-variant-numeric:tabular-nums}
+table.hist th{color:#8e97a3;font-weight:700;text-align:left;padding:calc(var(--u)*1) calc(var(--u)*1);border-bottom:1px solid #31353d;position:sticky;top:calc(var(--u)*-2.4);background:#1d2026}
+table.hist td{padding:calc(var(--u)*1.2) calc(var(--u)*1);border-bottom:1px solid #2a2e35}
+table.hist tr{cursor:pointer}
+table.hist td.r,table.hist th.r{text-align:right}
+.sumbar{display:flex;gap:calc(var(--u)*4);flex-wrap:wrap;font-size:calc(var(--u)*3.6);font-weight:800;margin-bottom:calc(var(--u)*2)}
+.sumbar b{color:#ffd43b}
+.empty{color:#8e97a3;text-align:center;padding:calc(var(--u)*6);font-size:calc(var(--u)*3.8)}
+.receipt{background:#fbfaf5;color:#111;font-family:ui-monospace,"D2Coding","Noto Sans Mono CJK KR",Menlo,monospace;font-size:calc(var(--u)*3.4);line-height:1.55;
+  width:min(100%,calc(var(--u)*96));margin:0 auto;padding:calc(var(--u)*3) calc(var(--u)*3.4);border-radius:calc(var(--u)*.6);box-shadow:0 0 0 1px #ddd}
+.receipt h3{text-align:center;font-size:calc(var(--u)*4.6);margin-bottom:calc(var(--u)*1)}
+.receipt .ln{display:flex;justify-content:space-between;gap:1em}
+.receipt hr{border:0;border-top:1px dashed #888;margin:calc(var(--u)*1.2) 0}
+.receipt .tot{font-size:calc(var(--u)*4.6);font-weight:900}
+.receipt .c{text-align:center;color:#555;font-size:.9em}
+.receiptWrap{display:flex;gap:calc(var(--u)*3);align-items:flex-start}
+.receiptSide{display:flex;flex-direction:column;gap:calc(var(--u)*1.6);min-width:calc(var(--u)*34)}
+.confirm .cardBody{font-size:calc(var(--u)*4);line-height:1.5}
+.confirm .acts{display:flex;gap:calc(var(--u)*2);justify-content:flex-end;padding:0 calc(var(--u)*3) calc(var(--u)*3)}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="meter">
+    <section class="left">
+      <div class="lcd" id="lcd">
+        <div class="top">
+          <span class="brand glow">택시미터</span>
+          <span class="cnt glow" id="cnt">0</span>
+          <span class="spd glow" id="spd">시속 0.0<small>㎞</small></span>
+          <span class="gps wait" id="gps"><i></i><b id="gpsTxt">위치 찾는 중</b></span>
+          <span class="serial" id="serial"></span><span class="clock" id="clock">00:00</span>
+        </div>
+        <div class="side">
+          <svg class="horse" id="horse" viewBox="0 0 64 40" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M15 14C21 11 32 11 40 12L44 8 48 3 51 5 56 9 57.5 12.5 53 12.5 47.5 16 44.5 20C40 23 31 23 24 22.5 19 22 15.5 20 15 14Z" fill="currentColor" fill-opacity=".18"/>
+            <path d="M48 3l1-2.5M15 14c-3 1-5 3-6 7"/>
+            <g class="f1"><path d="M41 21l6 4 6 1M37.5 22l4 6.5 4 4M18 21l-7 6-6 2M22 22l-4 7.5-5 5"/></g>
+            <g class="f2"><path d="M41 21l-2 8 3 6M37.5 22l-3 7.5 1.5 6.5M18 21l4 8-2 7M22 22l4 7 2 6"/></g>
+          </svg>
+          <div class="rate glow" id="rate">0%</div>
+          <div class="remain glow" id="remain">0<small id="remainLbl">다음 요금까지 (m)</small></div>
+        </div>
+        <div class="main">
+          <div class="fareRow"><div class="fare" id="fare">4800</div><div class="unit"><b>원</b><span id="fareLbl">기본</span></div></div>
+          <div class="callRow"><div class="call glow" id="call">0</div><div class="unit"><b>호출</b><b>요금</b></div></div>
+          <div class="sub" id="sub"></div>
+          <div class="chips" id="chips"></div>
+          <div class="payBtns" id="payBtns" hidden><button data-pay="현금">현금</button><button data-pay="카드">카드</button><button data-pay="계좌이체">계좌이체</button></div>
+        </div>
+        <div class="bottom">
+          <span class="status vac" id="status">빈차</span>
+          <div class="stats" id="stats"></div>
+        </div>
+        <div class="input" id="input" hidden></div>
+        <div class="practice" id="practice" hidden><span>연습 주행</span><input type="range" id="pSpd" min="0" max="100" step="1" value="0"><span id="pSpdTxt">시속 0㎞</span></div>
+        <div class="toast" id="toast" hidden></div>
+      </div>
+      <div class="fkeys">
+        <button class="fk" data-k="vac">빈차</button>
+        <button class="fk" data-k="hire">주행</button>
+        <button class="fk" data-k="night">할증</button>
+        <button class="fk" data-k="combo">복합</button>
+        <button class="fk" data-k="pay">지불</button>
+      </div>
+    </section>
+    <section class="pad">
+      <div class="padTop">
+        <div class="maker">전자식 택시 미터기<small>휴대폰용</small></div>
+        <div class="seal">검정필<br>2026</div>
+      </div>
+      <div class="keys">
+        <button class="k f" data-k="mode">구분</button><button class="k f" data-k="cargo">화물</button>
+        <button class="k n" data-n="1">1</button><button class="k n" data-n="2">2</button><button class="k n" data-n="3">3</button>
+        <button class="k f" data-k="out">시외</button><button class="k f" data-k="callk">호출</button>
+        <button class="k n" data-n="4">4</button><button class="k n" data-n="5">5</button><button class="k n" data-n="6">6</button>
+        <button class="k f" data-k="disc">인할</button><button class="k f" data-k="print">인쇄</button>
+        <button class="k n" data-n="7">7</button><button class="k n" data-n="8">8</button><button class="k n" data-n="9">9</button>
+        <button class="k f" data-k="hist">기록</button><button class="k f" data-k="prac">연습</button>
+        <button class="k lab" data-k="set">설정</button><button class="k n" data-n="0">0</button><button class="k f" data-k="cancel">취소</button>
+      </div>
+    </section>
+  </div>
+
+  <!-- 설정 -->
+  <div class="sheet" id="setSheet" hidden>
+    <div class="card">
+      <div class="cardHead"><h2>설정</h2><div class="sp"></div><button class="btn" data-close>닫기</button><button class="btn pri" id="setSave">저장</button></div>
+      <div class="cardBody"><div class="grid2" id="setForm"></div></div>
+    </div>
+  </div>
+  <!-- 기록 -->
+  <div class="sheet" id="histSheet" hidden>
+    <div class="card">
+      <div class="cardHead"><h2>운행 기록</h2><div class="sp"></div><button class="btn red" id="histClear">기록 모두 지우기</button><button class="btn" data-close>닫기</button></div>
+      <div class="cardBody" id="histBody"></div>
+    </div>
+  </div>
+  <!-- 영수증 -->
+  <div class="sheet" id="rcSheet" hidden>
+    <div class="card">
+      <div class="cardHead"><h2>영수증</h2><div class="sp"></div><button class="btn" data-close>닫기</button></div>
+      <div class="cardBody"><div class="receiptWrap"><div class="receipt" id="receipt"></div>
+        <div class="receiptSide"><button class="btn pri" id="rcShare">영수증 보내기</button><button class="btn" id="rcCopy">글자로 복사</button><p class="help" id="rcHelp">손님에게 문자나 카카오톡으로 영수증을 보낼 수 있어요.</p></div></div></div>
+    </div>
+  </div>
+  <!-- 확인 -->
+  <div class="sheet confirm" id="cfSheet" hidden>
+    <div class="card" style="width:min(100%,calc(var(--u)*120))">
+      <div class="cardHead"><h2 id="cfTitle">확인</h2></div>
+      <div class="cardBody" id="cfMsg"></div>
+      <div class="acts"><button class="btn" id="cfNo">아니요</button><button class="btn pri" id="cfYes">네</button></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+const $=id=>document.getElementById(id);
+const app=$("app");
+const NATIVE=window.Android||null;
+const KEY="taximeter.v1";
+
+/* ───────── 화면 크기 · 가로 고정 ───────── */
+function fit(){
+  const vw=innerWidth, vh=innerHeight, rot=vh>vw;
+  const W=rot?vh:vw, H=rot?vw:vh;
+  app.style.setProperty("--W",W+"px");app.style.setProperty("--H",H+"px");app.style.setProperty("--VW",vw+"px");
+  app.classList.toggle("rot",rot);
+}
+addEventListener("resize",fit);addEventListener("orientationchange",()=>setTimeout(fit,200));fit();
+try{screen.orientation&&screen.orientation.lock&&screen.orientation.lock("landscape").catch(()=>{})}catch(e){}
+(function safe(){const d=document.createElement("div");d.style.cssText="position:fixed;left:env(safe-area-inset-left,0px);right:env(safe-area-inset-right,0px);top:0;height:0;visibility:hidden";document.body.appendChild(d);
+  const r=d.getBoundingClientRect();app.style.setProperty("--sl",Math.max(0,r.left-12)+"px");app.style.setProperty("--sr",Math.max(0,innerWidth-r.right-12)+"px");d.remove()})();
+
+/* ───────── 요금 기준 ───────── */
+const PRESETS={
+  gyeonggi:{label:"경기도 (표준형)",base:4800,baseDist:1600,unitFare:100,unitDist:131,unitSec:30,thr:15.72,night:[[23,4,30],["","",""],["","",""]],out:20},
+  seoul:{label:"서울",base:4800,baseDist:1600,unitFare:100,unitDist:131,unitSec:30,thr:15.72,night:[[22,23,20],[23,2,40],[2,4,20]],out:20}
+};
+const DEF=Object.assign({preset:"gyeonggi",nightAuto:true,manualNight:20,callFee:1000,cargoFee:1000,discRate:10,
+  shop:"",carNo:"",bizNo:"",driver:"",phone:"",beep:true,voice:true},JSON.parse(JSON.stringify(PRESETS.gyeonggi)));
+delete DEF.label;
+
+let S;
+function fresh(){return{set:JSON.parse(JSON.stringify(DEF)),mode:"vac",night:false,out:false,call:0,extras:[],disc:false,
+  trip:null,stats:{total:0,biz:0,empty:0,count:0,sum:0},statSel:0,hist:[],serial:String(100000+Math.floor(Math.random()*899999)),lastT:Date.now(),lastWin:null,practice:false}}
+try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}
+if(!S||!S.set){S=fresh()}else{S.set=Object.assign(JSON.parse(JSON.stringify(DEF)),S.set);S.practice=false}
+let dirty=true,lastSave=0;
+function save(force){if(!force&&Date.now()-lastSave<3000)return;lastSave=Date.now();try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+
+/* ───────── 계산 ───────── */
+function nightWindowRate(d,cfg){
+  const h=d.getHours()+d.getMinutes()/60;
+  for(const w of (cfg||S.set).night){const a=+w[0],b=+w[1],r=+w[2];if(w[0]===""||w[1]===""||!r)continue;
+    if(a<b?(h>=a&&h<b):(h>=a||h<b))return r}
+  return null;
+}
+function curRate(){
+  const cfg=S.trip?S.trip.cfg:S.set;let r=0;
+  if(S.night){const w=nightWindowRate(new Date(),cfg);r+=(w==null?+S.set.manualNight:w)}
+  if(S.out)r+=+cfg.out;
+  return r;
+}
+const fl100=n=>Math.floor(n/100)*100;
+const unitAmt=(cfg,r)=>Math.round(cfg.unitFare*(1+r/100)/10)*10;
+function totals(){
+  const T=S.trip;const fare=T?T.fare:fl100(S.set.base*(1+curRate()/100));
+  const extra=S.extras.reduce((a,b)=>a+b,0);
+  const disc=S.disc?fl100(fare*(+S.set.discRate)/100):0;
+  return{fare,call:S.call,extra,disc,total:fare+S.call+extra-disc};
+}
+function startTrip(){
+  const cfg=JSON.parse(JSON.stringify(S.set));
+  S.trip={cfg,start:Date.now(),end:null,dist:0,secs:0,slowSecs:0,cnt:0,nextAt:+cfg.baseDist,fare:fl100(cfg.base*(1+curRate()/100)),startRate:curRate(),maxRate:curRate(),pay:"",histId:null};
+  S.mode="hire";
+}
+function meter(eq){
+  const T=S.trip,cfg=T.cfg;T.cnt+=eq;let n=0;
+  while(T.cnt>=T.nextAt&&n<5000){const r=curRate();T.fare+=unitAmt(cfg,r);T.nextAt+= +cfg.unitDist;n++;if(r>T.maxRate)T.maxRate=r}
+}
+function advance(t,d,v){
+  let dt=(t-S.lastT)/1000;S.lastT=t;
+  if(!(dt>0))dt=0;if(dt>60)dt=0;
+  S.stats.total+=d;
+  if(S.mode==="hire"&&S.trip){
+    const T=S.trip,cfg=T.cfg;T.dist+=d;T.secs+=dt;S.stats.biz+=d;
+    let eq;if(v<+cfg.thr){eq=dt*cfg.unitDist/cfg.unitSec;T.slowSecs+=dt}else eq=d;
+    meter(eq);
+  }else if(S.mode==="vac")S.stats.empty+=d;
+  dirty=true;
+}
+
+/* ───────── 위치 ───────── */
+let lastFix=null,lastFixT=0,curSpeed=0,gpsState="wait",gpsMsg="위치 찾는 중";
+function hav(a,b){const R=6371000,toR=Math.PI/180,dLa=(b.lat-a.lat)*toR,dLo=(b.lng-a.lng)*toR;
+  const x=Math.sin(dLa/2)**2+Math.cos(a.lat*toR)*Math.cos(b.lat*toR)*Math.sin(dLo/2)**2;return 2*R*Math.asin(Math.sqrt(x))}
+function onFix(f){
+  if(S.practice)return;
+  if(!(f.acc<=60)){gpsState="wait";gpsMsg="신호 약함";return}
+  gpsState="ok";gpsMsg="위치 정상";
+  if(!lastFix){lastFix=f;lastFixT=f.t;advance(f.t,0,curSpeed);return}
+  const dt=(f.t-lastFix.t)/1000;if(dt<=0)return;
+  let d=hav(lastFix,f);
+  const vCalc=d/dt*3.6;
+  if(vCalc>220&&dt<15){lastFix=Object.assign({},lastFix,{t:f.t});return}
+  let v=(f.spd!=null&&f.spd>=0)?f.spd*3.6:vCalc;
+  if(v<3&&d<12)d=0;
+  curSpeed=d===0&&v<3?0:v;lastFixT=f.t;
+  advance(f.t,d,curSpeed);
+  lastFix=d>0?f:Object.assign({},lastFix,{t:f.t});
+}
+function startGps(){
+  if(NATIVE)return;
+  if(!navigator.geolocation){gpsState="bad";gpsMsg="위치 사용 불가";return}
+  navigator.geolocation.watchPosition(p=>onFix({lat:p.coords.latitude,lng:p.coords.longitude,acc:p.coords.accuracy,spd:p.coords.speed,t:Date.now()}),
+    e=>{gpsState="bad";gpsMsg=e.code===1?"위치 권한 꺼짐":"위치 신호 없음"},{enableHighAccuracy:true,maximumAge:0,timeout:20000});
+}
+function drainNative(){
+  if(!NATIVE||!NATIVE.drain)return;
+  let arr;try{arr=JSON.parse(NATIVE.drain()||"[]")}catch(e){return}
+  for(const a of arr)onFix({lat:a[0],lng:a[1],acc:a[2],spd:a[3],t:a[4]});
+  if(NATIVE.gpsStatus){const s=NATIVE.gpsStatus();if(s==="denied"){gpsState="bad";gpsMsg="위치 권한 꺼짐"}else if(s==="off"){gpsState="bad";gpsMsg="위치(지피에스) 꺼짐"}else if(s==="wait"&&!lastFixT){gpsState="wait";gpsMsg="위치 찾는 중"}}
+}
+
+/* ───────── 소리 ───────── */
+let ac=null;
+function beep(f){if(!S.set.beep)return;try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();if(ac.state==="suspended")ac.resume();
+  const o=ac.createOscillator(),g=ac.createGain();o.type="square";o.frequency.value=f||2200;g.gain.value=.05;o.connect(g);g.connect(ac.destination);o.start();o.stop(ac.currentTime+.06)}catch(e){}}
+function say(t){if(!S.set.voice)return;try{if(NATIVE&&NATIVE.speak){NATIVE.speak(t);return}
+  if(window.speechSynthesis){speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang="ko-KR";u.rate=1.05;speechSynthesis.speak(u)}}catch(e){}}
+const won=n=>Math.round(n).toLocaleString("ko-KR")+"원";
+const km=m=>(m/1000).toFixed(m<10000?2:1)+"㎞";
+function dur(s){s=Math.round(s);const h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=s%60;return h?`${h}시간 ${m}분`:m?`${m}분 ${x}초`:`${x}초`}
+function fmtTime(t){const d=new Date(t);const p=n=>String(n).padStart(2,"0");return `${d.getFullYear()}.${p(d.getMonth()+1)}.${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`}
+
+/* ───────── 화면 그리기 ───────── */
+let toastT;
+function toast(m){const t=$("toast");t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,1800)}
+let input="";
+function render(){
+  const now=new Date(),p=n=>String(n).padStart(2,"0");
+  $("clock").textContent=p(now.getHours())+":"+p(now.getMinutes());
+  $("cnt").textContent=S.stats.count;
+  const v=S.practice?+$("pSpd").value:curSpeed;
+  $("spd").firstChild.nodeValue="시속 "+v.toFixed(1);
+  const g=$("gps");g.className="gps "+(S.practice?"ok":gpsState);$("gpsTxt").textContent=S.practice?"연습 주행":gpsMsg;
+  const r=curRate();$("rate").textContent=r+"%";
+  const T=S.trip,tt=totals();
+  const fare=$("fare"),st=$("status");
+  let big,lbl;
+  if(S.mode==="paid"){big=tt.total;lbl="합계";st.textContent="지불";st.className="status paid"}
+  else if(S.mode==="hire"){big=tt.fare;lbl="요금";st.textContent=S.night&&S.out?"복합":S.night?"할증":S.out?"시외":"주행";st.className="status"}
+  else{big=tt.fare;lbl="기본";st.textContent="빈차";st.className="status vac"}
+  const s=String(big);fare.textContent=s;fare.className="fare"+(S.mode==="vac"?" dim":"")+(s.length>=7?" len7":s.length===6?" len6":s.length===5?" len5":"");
+  $("fareLbl").textContent=lbl;
+  $("call").textContent=S.call;document.querySelector(".callRow").hidden=S.mode==="paid";$("chips").hidden=S.mode==="paid";
+  const h=$("horse");h.classList.toggle("on",S.mode==="hire");h.classList.toggle("run",S.mode==="hire"&&v>=1);
+  if(T&&S.mode!=="vac"){const rem=Math.max(0,Math.ceil(T.nextAt-T.cnt));$("remain").firstChild.nodeValue=rem;$("remainLbl").textContent=T.cnt<T.cfg.baseDist?"기본거리 남음 (m)":"다음 요금까지 (m)"}
+  else{$("remain").firstChild.nodeValue=S.set.baseDist;$("remainLbl").textContent="기본거리 (m)"}
+  let sub="";
+  if(S.mode==="paid")sub=`미터 ${won(tt.fare)}`+(tt.call?` + 호출 ${won(tt.call)}`:"")+(tt.extra?` + 추가 ${won(tt.extra)}`:"")+(tt.disc?` − 할인 ${won(tt.disc)}`:"")+(T?` · ${km(T.dist)} · ${dur(T.secs)}`:"");
+  else if(S.mode==="hire"&&T)sub=`${km(T.dist)} · ${dur(T.secs)}`+(tt.extra?` · 추가 ${won(tt.extra)}`:"")+(tt.disc?` · 할인 −${won(tt.disc)}`:"");
+  else sub=`거리 ${S.set.unitDist}m · 시간 ${S.set.unitSec}초당 ${unitAmt(S.set,r)}원`;
+  $("sub").textContent=sub;
+  let c="";
+  if(S.night)c+=`<span class="chip n">심야 할증</span>`;
+  if(S.out)c+=`<span class="chip o">시외 할증</span>`;
+  if(S.disc)c+=`<span class="chip d">할인 ${S.set.discRate}%</span>`;
+  if(S.extras.length)c+=`<span class="chip x">추가 ${S.extras.length}건</span>`;
+  if(S.practice)c+=`<span class="chip p">연습</span>`;
+  $("chips").innerHTML=c;
+  const pb=$("payBtns");pb.hidden=S.mode!=="paid";
+  if(S.mode==="paid")pb.querySelectorAll("button").forEach(b=>b.classList.toggle("on",T&&T.pay===b.dataset.pay));
+  const sv=S.stats,items=[`1.총주행 ${(sv.total/1000).toFixed(1)}㎞`,`2.영업 ${(sv.biz/1000).toFixed(1)}㎞`,`3.영업 ${sv.count}회`,`4.빈차 ${(sv.empty/1000).toFixed(1)}㎞`,`5.합산 ${sv.sum.toLocaleString("ko-KR")}원`];
+  $("stats").innerHTML=items.map((x,i)=>`<span class="${i===S.statSel?"sel":""}">${x}</span>`).join("");
+  $("serial").textContent="번호 "+S.serial;
+  document.querySelectorAll(".fk").forEach(b=>{const k=b.dataset.k;b.classList.toggle("on",
+    k==="vac"?S.mode==="vac":k==="hire"?S.mode==="hire":k==="night"?S.night&&!S.out:k==="combo"?S.night&&S.out:k==="pay"?S.mode==="paid":false)});
+  document.querySelector('[data-k=out]').classList.toggle("on",S.out);
+  document.querySelector('[data-k=callk]').classList.toggle("on",S.call>0);
+  document.querySelector('[data-k=disc]').classList.toggle("on",S.disc);
+  document.querySelector('[data-k=prac]').classList.toggle("on",S.practice);
+  const inp=$("input");inp.hidden=!input;if(input)inp.innerHTML=`<small>입력</small>${Number(input).toLocaleString("ko-KR")}`;
+  $("practice").hidden=!S.practice;$("pSpdTxt").textContent="시속 "+$("pSpd").value+"㎞";
+}
+
+/* ───────── 매 초 ───────── */
+function autoNight(){
+  if(!S.set.nightAuto)return;
+  const w=nightWindowRate(new Date(),S.trip?S.trip.cfg:S.set)!=null;
+  if(w!==S.lastWin){S.lastWin=w;if(S.night!==w){S.night=w;dirty=true;if(w&&S.mode==="hire")say("심야 할증이 적용됩니다")}}
+}
+function tick(){
+  const now=Date.now();
+  drainNative();autoNight();
+  if(S.practice){const v=+$("pSpd").value,dt=Math.min(Math.max((now-S.lastT)/1000,0),60);curSpeed=v;advance(now,v/3.6*dt,v)}
+  else if(!lastFixT||now-lastFixT>3000){if(now-lastFixT>5000)curSpeed=0;advance(now,0,0)}
+  render();save(false);
+}
+
+/* ───────── 버튼 동작 ───────── */
+function finishTrip(){
+  const T=S.trip;T.end=Date.now();const tt=totals();
+  const rec={id:T.start,start:T.start,end:T.end,dist:T.dist,secs:T.secs,fare:tt.fare,call:tt.call,extra:tt.extra,extras:S.extras.slice(),disc:tt.disc,total:tt.total,
+    rate:T.maxRate,night:S.night,out:S.out,pay:"",cfg:{base:T.cfg.base}};
+  S.hist.unshift(rec);if(S.hist.length>2000)S.hist.length=2000;
+  T.histId=rec.id;S.stats.count++;S.stats.sum+=tt.total;S.mode="paid";
+  say(`요금은 ${tt.total}원입니다. 감사합니다`);
+}
+function undoFinish(){
+  const T=S.trip;const i=S.hist.findIndex(h=>h.id===T.histId);
+  if(i>=0){S.stats.count--;S.stats.sum-=S.hist[i].total;S.hist.splice(i,1)}
+  T.histId=null;T.end=null;S.mode="hire";S.lastT=Date.now();
+}
+function resetVac(){S.mode="vac";S.trip=null;S.call=0;S.extras=[];S.disc=false;S.out=false;if(S.set.nightAuto)S.night=nightWindowRate(new Date())!=null;S.lastT=Date.now()}
+const ACT={
+  vac(){if(S.mode==="paid"){resetVac();toast("빈차")}else if(S.mode==="hire")toast("먼저 지불을 눌러 주세요 · 길게 누르면 운행 취소");else toast("빈차 상태예요")},
+  vacLong(){if(S.mode==="hire")ask("운행 취소","지금 운행을 기록 없이 취소할까요?",()=>{resetVac();toast("운행을 취소했어요")})},
+  hire(){if(S.mode==="vac"){startTrip();say("안전벨트를 착용해 주세요");toast("주행 시작")}else if(S.mode==="paid"){undoFinish();toast("주행으로 돌아왔어요")}},
+  night(){S.night=!S.night;if(S.night&&S.out){}toast(S.night?`심야 할증 ${curRate()}%`:"심야 할증 해제")},
+  combo(){const on=!(S.night&&S.out);S.night=on;S.out=on;toast(on?`복합 할증 ${curRate()}%`:"복합 할증 해제")},
+  pay(){if(S.mode==="hire")finishTrip();else if(S.mode==="paid")toast("빈차를 누르면 다음 손님을 받아요");else toast("주행 중이 아니에요")},
+  mode(){S.statSel=(S.statSel+1)%5},
+  modeLong(){ask("누적 기록 초기화","총주행·영업·빈차 거리, 영업 횟수, 합산 요금을 0으로 돌릴까요? (운행 기록 목록은 남아요)",()=>{S.stats={total:0,biz:0,empty:0,count:0,sum:0};toast("초기화했어요")})},
+  cargo(){if(S.mode==="paid")return toast("주행으로 돌아가서 추가해 주세요");const n=input?+input:+S.set.cargoFee;if(!n)return toast("금액을 입력해 주세요");S.extras.push(n);input="";toast(`추가 요금 ${won(n)}`)},
+  out(){S.out=!S.out;toast(S.out?`시외 할증 ${S.set.out}%`:"시외 할증 해제")},
+  callk(){if(S.mode==="paid")return toast("주행으로 돌아가서 바꿔 주세요");if(input){S.call=+input;input=""}else S.call=S.call?0:+S.set.callFee;toast(S.call?`호출 요금 ${won(S.call)}`:"호출 요금 해제")},
+  disc(){if(S.mode==="paid")return toast("주행으로 돌아가서 바꿔 주세요");if(input){const n=Math.min(100,+input);S.set.discRate=n;S.disc=n>0;input=""}else S.disc=!S.disc;toast(S.disc?`할인 ${S.set.discRate}%`:"할인 해제")},
+  print(){const rec=S.mode==="paid"&&S.trip?S.hist.find(h=>h.id===S.trip.histId):S.mode==="hire"?null:S.hist[0];
+    if(S.mode==="hire"){showReceipt(liveRec());return}if(!rec)return toast("출력할 영수증이 없어요");showReceipt(rec)},
+  hist(){showHist()},
+  prac(){S.practice=!S.practice;if(!S.practice){$("pSpd").value=0;curSpeed=0}lastFix=null;S.lastT=Date.now();toast(S.practice?"연습 주행: 막대로 속도를 정해요":"연습 주행 끝")},
+  set(){showSet()},
+  cancel(){if(input){input="";return}if(S.mode==="paid")return toast("주행으로 돌아가서 취소해 주세요");
+    if(S.extras.length){const n=S.extras.pop();toast(`추가 요금 ${won(n)} 취소`)}else if(S.call){S.call=0;toast("호출 요금 취소")}else if(S.disc){S.disc=false;toast("할인 취소")}else toast("취소할 것이 없어요")}
+};
+function liveRec(){const T=S.trip,tt=totals();return{id:0,start:T.start,end:Date.now(),dist:T.dist,secs:T.secs,fare:tt.fare,call:tt.call,extra:tt.extra,extras:S.extras.slice(),disc:tt.disc,total:tt.total,rate:T.maxRate,pay:"",live:true}}
+
+function bindPress(el,short,long){
+  let tm=null,fired=false;
+  el.addEventListener("pointerdown",e=>{e.preventDefault();fired=false;wake();
+    if(long)tm=setTimeout(()=>{fired=true;beep(1400);long();render();save(true)},800)});
+  const up=()=>{if(tm){clearTimeout(tm);tm=null}};
+  el.addEventListener("pointerup",e=>{up();if(!fired){beep();short();render();save(true)}});
+  el.addEventListener("pointerleave",up);el.addEventListener("pointercancel",()=>{up();fired=true});
+  el.addEventListener("contextmenu",e=>e.preventDefault());
+}
+document.querySelectorAll("[data-k]").forEach(b=>{const k=b.dataset.k;bindPress(b,()=>ACT[k](),ACT[k+"Long"]||null)});
+document.querySelectorAll("[data-n]").forEach(b=>bindPress(b,()=>{if(input.length<7)input=(input==="0"?"":input)+b.dataset.n}));
+$("payBtns").querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{beep();const T=S.trip;if(!T)return;T.pay=T.pay===b.dataset.pay?"":b.dataset.pay;
+  const h=S.hist.find(x=>x.id===T.histId);if(h)h.pay=T.pay;render();save(true)}));
+$("pSpd").addEventListener("input",()=>render());
+
+/* ───────── 창 ───────── */
+function open(id){$(id).hidden=false}
+document.querySelectorAll("[data-close]").forEach(b=>b.addEventListener("click",()=>b.closest(".sheet").hidden=true));
+document.querySelectorAll(".sheet").forEach(s=>s.addEventListener("pointerdown",e=>{if(e.target===s&&s.id!=="cfSheet")s.hidden=true}));
+let cfYes=null;
+function ask(t,m,yes){$("cfTitle").textContent=t;$("cfMsg").textContent=m;cfYes=yes;open("cfSheet")}
+$("cfNo").onclick=()=>{$("cfSheet").hidden=true};
+$("cfYes").onclick=()=>{$("cfSheet").hidden=true;if(cfYes)cfYes();render();save(true)};
+
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+let rcText="";
+function showReceipt(r){
+  const st=S.set,L=[];
+  const ln=(a,b,cls)=>`<div class="ln ${cls||""}"><span>${esc(a)}</span><span>${esc(b)}</span></div>`;
+  let h=`<h3>택시 영수증</h3>`;
+  if(st.shop)h+=`<div class="c">${esc(st.shop)}</div>`;
+  h+=`<hr>`;
+  const rows=[];
+  if(st.carNo)rows.push(["차량번호",st.carNo]);if(st.bizNo)rows.push(["사업자번호",st.bizNo]);if(st.driver)rows.push(["운전자",st.driver]);if(st.phone)rows.push(["연락처",st.phone]);
+  rows.push(["승차",fmtTime(r.start)],["하차",r.live?"주행 중":fmtTime(r.end)],["주행거리",km(r.dist)],["주행시간",dur(r.secs)]);
+  if(r.rate)rows.push(["할증",r.rate+"%"]);
+  const rows2=[["미터 요금",won(r.fare)]];
+  if(r.call)rows2.push(["호출 요금",won(r.call)]);
+  (r.extras||[]).forEach((x,i)=>rows2.push([`추가 요금 ${i+1}`,won(x)]));
+  if(r.disc)rows2.push(["할인","−"+won(r.disc)]);
+  h+=rows.map(x=>ln(x[0],x[1])).join("")+`<hr>`+rows2.map(x=>ln(x[0],x[1])).join("")+`<hr>`+ln("합계",won(r.total),"tot");
+  if(r.pay)h+=ln("결제",r.pay);
+  h+=`<hr><div class="c">번호 ${esc(S.serial)} · 이용해 주셔서 감사합니다</div>`;
+  $("receipt").innerHTML=h;
+  rcText=["[택시 영수증]",st.shop].filter(Boolean).concat(rows.map(x=>x[0]+": "+x[1]),["-----"],rows2.map(x=>x[0]+": "+x[1]),["-----","합계: "+won(r.total)],r.pay?["결제: "+r.pay]:[]).join("\n");
+  $("rcShare").hidden=!(navigator.share||(NATIVE&&NATIVE.share));
+  open("rcSheet");
+}
+$("rcShare").onclick=()=>{if(NATIVE&&NATIVE.share){NATIVE.share(rcText);return}if(navigator.share)navigator.share({text:rcText}).catch(()=>{})};
+$("rcCopy").onclick=()=>{const done=()=>toastIn("복사했어요");
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(rcText).then(done,fb);else fb();
+  function fb(){const ta=document.createElement("textarea");ta.value=rcText;document.body.appendChild(ta);ta.select();try{document.execCommand("copy");done()}catch(e){}ta.remove()}};
+function toastIn(m){$("rcHelp").textContent=m;setTimeout(()=>$("rcHelp").textContent="손님에게 문자나 카카오톡으로 영수증을 보낼 수 있어요.",1800)}
+
+function showHist(){
+  const H=S.hist;let h="";
+  const today=new Date().toDateString();const tod=H.filter(x=>new Date(x.start).toDateString()===today);
+  h+=`<div class="sumbar"><span>오늘 <b>${tod.length}회</b></span><span>오늘 합계 <b>${won(tod.reduce((a,b)=>a+b.total,0))}</b></span><span>오늘 거리 <b>${km(tod.reduce((a,b)=>a+b.dist,0))}</b></span><span>전체 <b>${H.length}회 · ${won(H.reduce((a,b)=>a+b.total,0))}</b></span></div>`;
+  if(!H.length)h+=`<div class="empty">아직 운행 기록이 없어요.<br>주행 → 지불을 누르면 여기에 쌓여요.</div>`;
+  else{h+=`<table class="hist"><thead><tr><th>승차</th><th>하차</th><th class="r">거리</th><th class="r">시간</th><th class="r">요금</th><th>결제</th></tr></thead><tbody>`;
+    H.slice(0,300).forEach((x,i)=>{h+=`<tr data-i="${i}"><td>${fmtTime(x.start)}</td><td>${fmtTime(x.end).slice(11)}</td><td class="r">${km(x.dist)}</td><td class="r">${dur(x.secs)}</td><td class="r"><b>${won(x.total)}</b></td><td>${esc(x.pay||"-")}</td></tr>`});
+    h+=`</tbody></table>`}
+  $("histBody").innerHTML=h;
+  $("histBody").querySelectorAll("tr[data-i]").forEach(tr=>tr.onclick=()=>showReceipt(S.hist[+tr.dataset.i]));
+  open("histSheet");
+}
+$("histClear").onclick=()=>ask("기록 지우기","운행 기록을 모두 지울까요? 되돌릴 수 없어요.",()=>{S.hist=[];showHist()});
+
+/* 설정 */
+const FIELDS=[
+  ["sec","요금 기준"],
+  ["preset"],
+  ["n","base","기본요금","원"],["n","baseDist","기본거리","m"],
+  ["n","unitFare","거리·시간 요금","원"],["n","unitDist","거리 요금 단위","m"],
+  ["n","unitSec","시간 요금 단위","초"],["n","thr","시간 요금 적용 속도 (이하)","㎞"],
+  ["sec","할증"],
+  ["c","nightAuto","심야 할증 시간에 자동으로 켜기"],["n","manualNight","할증 버튼 할증률 (시간 밖)","%"],
+  ["night"],
+  ["n","out","시외 할증률","%"],["n","discRate","인할 버튼 할인율","%"],
+  ["sec","추가 요금"],
+  ["n","callFee","호출 버튼 기본 금액","원"],["n","cargoFee","화물 버튼 기본 금액","원"],
+  ["help","숫자를 먼저 누르고 호출·화물·인할 버튼을 누르면 그 금액(할인은 %)으로 들어가요. 통행료도 숫자 입력 후 화물 버튼으로 더하면 돼요."],
+  ["sec","영수증에 들어갈 정보"],
+  ["t","shop","상호(회사 이름)"],["t","carNo","차량번호"],["t","bizNo","사업자번호"],["t","driver","운전자 이름"],["t","phone","연락처"],
+  ["sec","소리"],
+  ["c","beep","버튼 누를 때 삑 소리"],["c","voice","음성 안내 (안전벨트·요금 안내)"],
+  ["sec","버튼 설명"],
+  ["help","빈차·주행·지불: 손님 태우기 → 내릴 때 지불 → 빈차. 지불 후 주행을 누르면 다시 이어서 달려요. 빈차를 길게 누르면 운행 취소. 할증: 심야 할증 켜고 끄기. 복합: 심야+시외 함께. 구분: 아래 누적 기록 넘겨 보기(길게 누르면 초기화). 인쇄: 영수증. 연습: 차 없이 속도 막대로 시험 주행."]
+];
+let draft=null;
+function showSet(){draft=JSON.parse(JSON.stringify(S.set));buildSet();open("setSheet")}
+function buildSet(){
+  let h="";
+  for(const f of FIELDS){
+    if(f[0]==="sec")h+=`<div class="sec">${f[1]}</div>`;
+    else if(f[0]==="help")h+=`<p class="help">${f[1]}</p>`;
+    else if(f[0]==="preset")h+=`<div class="fld" style="grid-column:1/3"><span>지역 요금표 불러오기</span><div class="seg">${Object.entries(PRESETS).map(([k,p])=>`<button type="button" data-pre="${k}" class="${draft.preset===k?"on":""}">${p.label}</button>`).join("")}<button type="button" data-pre="custom" class="${draft.preset==="custom"?"on":""}">직접 입력</button></div></div>`;
+    else if(f[0]==="n")h+=`<label class="fld"><span>${f[2]}</span><input type="number" inputmode="decimal" data-f="${f[1]}" value="${esc(draft[f[1]])}"><span class="u">${f[3]}</span></label>`;
+    else if(f[0]==="t")h+=`<label class="fld"><span>${f[2]}</span><input type="text" data-f="${f[1]}" value="${esc(draft[f[1]])}"></label>`;
+    else if(f[0]==="c")h+=`<label class="fld"><span>${f[2]}</span><input type="checkbox" data-f="${f[1]}" ${draft[f[1]]?"checked":""}></label>`;
+    else if(f[0]==="night")h+=`<div style="grid-column:1/3;display:grid;grid-template-columns:1fr 1fr;gap:calc(var(--u)*1.6) calc(var(--u)*4)">${draft.night.map((w,i)=>`<div class="nightRow">심야 ${i+1} <input type="number" data-nw="${i},0" value="${esc(w[0])}">시~<input type="number" data-nw="${i},1" value="${esc(w[1])}">시 <input type="number" data-nw="${i},2" value="${esc(w[2])}">%</div>`).join("")}</div>`;
+  }
+  const form=$("setForm");form.innerHTML=h;
+  form.querySelectorAll("[data-pre]").forEach(b=>b.onclick=()=>{readSet();const k=b.dataset.pre;draft.preset=k;if(PRESETS[k]){const p=JSON.parse(JSON.stringify(PRESETS[k]));delete p.label;Object.assign(draft,p)}buildSet()});
+  form.querySelectorAll("input").forEach(i=>i.addEventListener("change",()=>{if(i.dataset.f&&i.type==="number"||i.dataset.nw){draft.preset="custom";form.querySelectorAll("[data-pre]").forEach(b=>b.classList.toggle("on",b.dataset.pre==="custom"))}}));
+}
+function readSet(){
+  $("setForm").querySelectorAll("[data-f]").forEach(i=>{const k=i.dataset.f;if(i.type==="checkbox")draft[k]=i.checked;else if(i.type==="number"){const v=parseFloat(i.value);draft[k]=isFinite(v)?v:draft[k]}else draft[k]=i.value.trim()});
+  $("setForm").querySelectorAll("[data-nw]").forEach(i=>{const[a,b]=i.dataset.nw.split(",").map(Number);const v=i.value.trim();draft.night[a][b]=v===""?"":+v});
+}
+$("setSave").onclick=()=>{readSet();
+  if(!(draft.base>0&&draft.baseDist>0&&draft.unitFare>0&&draft.unitDist>0&&draft.unitSec>0)){return}
+  S.set=draft;S.lastWin=null;$("setSheet").hidden=true;toast(S.mode==="hire"?"저장했어요 · 요금 기준은 다음 손님부터 적용돼요":"저장했어요");render();save(true)};
+
+/* ───────── 화면 꺼짐 막기 ───────── */
+let wl=null;
+async function wake(){try{if(!NATIVE&&navigator.wakeLock&&!wl){wl=await navigator.wakeLock.request("screen");wl.addEventListener("release",()=>wl=null)}}catch(e){}}
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"){wake();tick()}else save(true)});
+addEventListener("pagehide",()=>save(true));
+
+if(location.protocol.startsWith("http")&&"serviceWorker" in navigator)addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
+
+S.lastT=Date.now();lastFixT=0;
+startGps();render();setInterval(tick,500);wake();
+})();
+</script>
+</body>
+</html>
