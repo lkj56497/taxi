@@ -638,7 +638,8 @@ if(location.protocol.startsWith("http")&&"serviceWorker" in navigator){
     const dt=Math.min(.1,(now-last)/1000);last=now;
     const v=S.mode==="hire"?(S.practice?+$("pSpd").value:curSpeed):0;
     const hired=S.mode==="hire";
-    const rate=!hired?0:v<1?.45:Math.min(2.4,.45+v/35);          // 주행 중이면 늘 움직이고, 빠를수록 빨라짐 (초당 10장면 한 바퀴 횟수)
+    const wheel=!(S.night&&nightImg)&&S.out&&outImg;               // 시외 할증 그림(바퀴)은 속도에 더 크게 반응
+    const rate=!hired?0:wheel?(v<1?.3:Math.min(6,.3+v/14)):(v<1?.45:Math.min(2.4,.45+v/35));  // 초당 10장면 한 바퀴 횟수
     ph=(ph+rate*dt)%1;
     const night=!!(S.night&&nightImg),out=!night&&!!(S.out&&outImg),src=night?nightImg:out?outImg:tint,fw=out?373:FW,key=(night?100:out?200:0)+(hired?Math.floor(ph*N)%N:3),i=key%100;
     if(W&&src&&key!==shown){
